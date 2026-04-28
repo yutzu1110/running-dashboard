@@ -295,7 +295,6 @@ if(t<=20)  return 72+Math.sin(t*.3)*1.2;
 if(t<=180) return lerp(72,128,(t-20)/160);
 return 128+Math.sin(t*.025)*5+Math.sin(t*.06)*3;
 }
-function hrNoise(t){ return (Math.random()-.5)*(t<=20?1.2:3.5); }
 
 // ══════════════════════════════════
 //  LED DOT-MATRIX ECG
@@ -310,23 +309,21 @@ const {ctx,w,h}=setupCanvas(‘ecgC’);
 ecgCtx=ctx; ecgW=w; ecgH=h;
 }
 
-// ECG shape: returns 0..1  (0.5 = baseline)
 function ecgShape(ph, amp){
 let v=0;
-if(ph>=.10&&ph<.22)      v= amp*.14*Math.sin((ph-.10)/.12*Math.PI);         // P
-else if(ph>=.30&&ph<.34) v=-amp*.12*Math.sin((ph-.30)/.04*Math.PI);         // Q
-else if(ph>=.34&&ph<.40) v= amp*.95*Math.sin((ph-.34)/.06*Math.PI);         // R
-else if(ph>=.40&&ph<.46) v=-amp*.28*Math.sin((ph-.40)/.06*Math.PI);         // S
-else if(ph>=.44&&ph<.52) v= amp*.03;                                         // ST
-else if(ph>=.52&&ph<.72) v= amp*.24*Math.sin((ph-.52)/.20*Math.PI);         // T
-v+=(Math.random()-.5)*amp*.013;                                              // noise
+if(ph>=.10&&ph<.22)      v= amp*.14*Math.sin((ph-.10)/.12*Math.PI);
+else if(ph>=.30&&ph<.34) v=-amp*.12*Math.sin((ph-.30)/.04*Math.PI);
+else if(ph>=.34&&ph<.40) v= amp*.95*Math.sin((ph-.34)/.06*Math.PI);
+else if(ph>=.40&&ph<.46) v=-amp*.28*Math.sin((ph-.40)/.06*Math.PI);
+else if(ph>=.44&&ph<.52) v= amp*.03;
+else if(ph>=.52&&ph<.72) v= amp*.24*Math.sin((ph-.52)/.20*Math.PI);
+v+=(Math.random()-.5)*amp*.013;
 return clamp(0.5-v*.44, 0, 1);
 }
 
 function advanceEcg(){
 const bpm=hrHist.length>0?hrHist[hrHist.length-1]:72;
 const amp=clamp(.4+(bpm-60)/80*.6, .4, 1.0);
-// advance ~1 sample per call (called every animation frame, ~60fps)
 beatPhase+=bpm/(60*60);
 if(beatPhase>=1) beatPhase-=1;
 samples[wpos]=ecgShape(beatPhase, amp);
@@ -336,18 +333,12 @@ wpos=(wpos+1)%BUF;
 function drawLedEcg(){
 if(!ecgCtx) return;
 advanceEcg();
-
 ecgCtx.clearRect(0,0,ecgW,ecgH);
-
-// Dark background
 ecgCtx.fillStyle=’#04100a’;
 ecgCtx.fillRect(0,0,ecgW,ecgH);
-
-// Dot grid
 const COLS=Math.floor(ecgW/5);
 const ROWS=Math.floor(ecgH/5);
 const cSp=ecgW/COLS, rSp=ecgH/ROWS;
-
 ecgCtx.fillStyle=‘rgba(0,160,80,.09)’;
 for(let r=0;r<ROWS;r++){
 for(let c=0;c<COLS;c++){
@@ -356,58 +347,42 @@ ecgCtx.arc(c*cSp+cSp/2, r*rSp+rSp/2, .9, 0, Math.PI*2);
 ecgCtx.fill();
 }
 }
-
-// Draw waveform as LED dots — newest = right, oldest = left
 const DISP=Math.min(COLS, BUF);
 for(let col=0;col<DISP;col++){
 const bufIdx=(wpos - DISP + col + BUF) % BUF;
-const s=samples[bufIdx]; // 0..1
-
-```
+const s=samples[bufIdx];
 const targetY=s*ecgH;
 const targetRow=Math.round(targetY/rSp);
-
-// age fade: older = dimmer
 const age=DISP-col;
 const bright=clamp(1.0-age/DISP*.4, .5, 1.0);
-
-// spike detection (R wave near top)
 const isR=s<.20;
 const isS=s>.64;
-
-// dot size and glow
 const dotR=isR?2.3:1.7;
 const rows=isR?3:2;
-
 for(let dr=0;dr<rows;dr++){
-  const row=targetRow+dr-Math.floor(rows/2);
-  if(row<0||row>=ROWS) continue;
-  const cx=col*cSp+cSp/2;
-  const cy=row*rSp+rSp/2;
-
-  if(isR){
-    ecgCtx.shadowColor='#ff1144';
-    ecgCtx.shadowBlur=10;
-    ecgCtx.fillStyle=`rgba(255,40,100,${bright})`;
-  } else if(isS){
-    ecgCtx.shadowColor='#ff6622';
-    ecgCtx.shadowBlur=5;
-    ecgCtx.fillStyle=`rgba(255,100,60,${bright*.9})`;
-  } else {
-    ecgCtx.shadowColor='#ff2255';
-    ecgCtx.shadowBlur=5;
-    ecgCtx.fillStyle=`rgba(255,60,110,${bright})`;
-  }
-  ecgCtx.beginPath();
-  ecgCtx.arc(cx,cy,dotR,0,Math.PI*2);
-  ecgCtx.fill();
-  ecgCtx.shadowBlur=0;
+const row=targetRow+dr-Math.floor(rows/2);
+if(row<0||row>=ROWS) continue;
+const cx=col*cSp+cSp/2;
+const cy=row*rSp+rSp/2;
+if(isR){
+ecgCtx.shadowColor=’#ff1144’;
+ecgCtx.shadowBlur=10;
+ecgCtx.fillStyle=`rgba(255,40,100,${bright})`;
+} else if(isS){
+ecgCtx.shadowColor=’#ff6622’;
+ecgCtx.shadowBlur=5;
+ecgCtx.fillStyle=`rgba(255,100,60,${bright*.9})`;
+} else {
+ecgCtx.shadowColor=’#ff2255’;
+ecgCtx.shadowBlur=5;
+ecgCtx.fillStyle=`rgba(255,60,110,${bright})`;
 }
-```
-
+ecgCtx.beginPath();
+ecgCtx.arc(cx,cy,dotR,0,Math.PI*2);
+ecgCtx.fill();
+ecgCtx.shadowBlur=0;
 }
-
-// Sweep line (leading edge glow)
+}
 const sx=(wpos/BUF)*ecgW;
 const sg=ecgCtx.createLinearGradient(sx-24,0,sx+3,0);
 sg.addColorStop(0,‘rgba(255,60,110,0)’);
@@ -415,16 +390,12 @@ sg.addColorStop(.7,‘rgba(255,60,110,.1)’);
 sg.addColorStop(1,‘rgba(255,200,220,.28)’);
 ecgCtx.fillStyle=sg;
 ecgCtx.fillRect(sx-24,0,27,ecgH);
-
-// BPM label
 const bpm=hrHist.length>0?hrHist[hrHist.length-1]:72;
 ecgCtx.font=“bold 10px ‘Orbitron’,monospace”;
 ecgCtx.fillStyle=‘rgba(255,80,120,.55)’;
 ecgCtx.textAlign=‘right’;
 ecgCtx.fillText(bpm+’ BPM’, ecgW-5, 13);
 ecgCtx.textAlign=‘left’;
-
-// sync number pulse speed
 document.querySelector(’.hrbig’).style.animationDuration=(60/bpm).toFixed(2)+‘s’;
 }
 
@@ -522,14 +493,6 @@ const g=ccCtx.createLinearGradient(0,ccH-bh,0,ccH);
 g.addColorStop(0,‘rgba(255,159,32,.6)’);g.addColorStop(1,‘rgba(255,80,32,.1)’);
 ccCtx.fillStyle=g;ccCtx.fillRect(x,ccH-bh,bw,bh);
 });
-ccCtx.fillStyle=‘rgba(255,159,32,.85)’;ccCtx.font=“bold 9px ‘Orbitron’,monospace”;ccCtx.textAlign=‘center’;
-[0,20,40,60].forEach(i=>{
-if(i<disp.length&&disp[i]>.5){
-const x=pad+(i/disp.length)*(ccW-pad*2)+bw/2;
-const bh=(disp[i]/300)*(ccH*.80);
-ccCtx.fillText(disp[i].toFixed(1),x,ccH-bh-4);
-}
-});
 if(hrD.length>1){
 ccCtx.beginPath();
 hrD.forEach((v,i)=>{
@@ -580,7 +543,6 @@ const rpe=Math.round(clamp(6+(hrVal-68)/10,6,13));
 const rem=Math.max(0,TOTAL-elapsed);
 const rm=String(Math.floor(rem/60)).padStart(2,‘0’),rs=String(rem%60).padStart(2,‘0’);
 
-// zone badge
 const badge=document.getElementById(‘hrZ’);
 let zt,bg,col,bc;
 if(elapsed<=20||hr<80){zt=‘● 靜止狀態’;bg=‘rgba(62,207,142,.10)’;col=’#3ecf8e’;bc=‘rgba(62,207,142,.28)’;}
